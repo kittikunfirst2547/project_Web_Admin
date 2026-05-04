@@ -2,7 +2,10 @@ import { prisma } from "@/lib/prisma";
 import fs from "fs/promises";
 import path from "path";
 
-const BACKUP_DIR = path.join(process.cwd(), "backups");
+// ใช้ /tmp สำหรับ serverless environment (Vercel), มิฉะนั้นใช้ process.cwd()
+const BACKUP_DIR = process.env.VERCEL 
+  ? "/tmp/backups" 
+  : path.join(process.cwd(), "backups");
 
 const DAY_MAP: Record<string, number> = {
   sun: 0,

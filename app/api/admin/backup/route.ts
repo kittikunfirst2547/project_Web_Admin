@@ -9,7 +9,10 @@ import path from "path";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BACKUP_DIR = path.join(process.cwd(), "backups");
+// ใช้ /tmp สำหรับ serverless environment (Vercel), มิฉะนั้นใช้ process.cwd()
+const BACKUP_DIR = process.env.VERCEL 
+  ? "/tmp/backups" 
+  : path.join(process.cwd(), "backups");
 
 async function ensureAdmin() {
   const session = await getServerSession(authOptions);
