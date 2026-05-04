@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 const createSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อสินค้า"),
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
       imageUrl: imageUrl || null,
     },
   });
+
+  // Revalidate shop page cache
+  revalidatePath("/shop");
 
   return NextResponse.json({ product });
 }

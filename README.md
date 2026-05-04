@@ -77,7 +77,7 @@ npm run dev
 
 ## ข้อมูลเริ่มต้น (จาก Seed)
 
-- **Admin:** admin@mahoraga.com / admin123
+- **Admin:** admin@mahoraga.com / Admin@1234
 - **User:** user@example.com / user123
 
 ## Scripts ที่ใช้บ่อย

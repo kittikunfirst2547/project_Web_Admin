@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -42,6 +43,9 @@ export async function PATCH(
     data,
   });
 
+  // Revalidate shop page cache
+  revalidatePath("/shop");
+
   return NextResponse.json({ product });
 }
 
@@ -58,6 +62,9 @@ export async function DELETE(
     where: { id: params.id },
     data: { isActive: false },
   });
+
+  // Revalidate shop page cache
+  revalidatePath("/shop");
 
   return NextResponse.json({ message: "ปิดการใช้งานสินค้าแล้ว" });
 }
