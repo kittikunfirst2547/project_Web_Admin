@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/prisma";
+import { prisma  } from "@/lib/prisma";
 import fs from "fs/promises";
 import path from "path";
 import bcrypt from "bcryptjs";
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     if (tables.products?.length) {
       let count = 0;
       for (const p of tables.products) {
-        await db.product.upsert({
+        await prisma.product.upsert({
           where:  { id: p.id },
           create: p,
           update: {
@@ -117,12 +117,12 @@ export async function POST(req: Request) {
     if (tables.users?.length) {
       let count = 0;
       for (const u of tables.users) {
-        const exists = await db.user.findUnique({ where: { id: u.id } });
+        const exists = await prisma.user.findUnique({ where: { id: u.id } });
         if (!exists) {
           // user ใหม่ที่ไม่มีในระบบ — ต้องมี password
           // ตั้ง default password แล้วให้ reset
           const defaultPwd = await bcrypt.hash("Reset@1234", 12);
-          await db.user.create({
+          await prisma.user.create({
             data: {
               id:        u.id,
               name:      u.name,
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
           });
         } else {
           // อัปเดตเฉพาะ name, role, isDeleted, isBanned
-          await db.user.update({
+          await prisma.user.update({
             where: { id: u.id },
             data: {
               name:      u.name,
@@ -155,9 +155,9 @@ export async function POST(req: Request) {
     if (tables.readings?.length) {
       let count = 0;
       for (const r of tables.readings) {
-        const exists = await db.reading.findUnique({ where: { id: r.id } });
+        const exists = await prisma.reading.findUnique({ where: { id: r.id } });
         if (!exists) {
-          await db.reading.create({ data: r });
+          await prisma.reading.create({ data: r });
           count++;
         }
       }
