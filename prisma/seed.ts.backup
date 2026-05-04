@@ -1,0 +1,130 @@
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log("Start seeding...");
+
+  const adminPassword = await bcrypt.hash("Admin@1234", 12);
+  await prisma.user.upsert({
+    where: { email: "admin@astroverse.com" },
+    update: {
+      name: "ผู้ดูแลระบบ",
+      password: adminPassword,
+      role: "admin",
+      isDeleted: false,
+      isBanned: false,
+    },
+    create: {
+      email: "admin@astroverse.com",
+      name: "ผู้ดูแลระบบ",
+      password: adminPassword,
+      role: "admin",
+    },
+  });
+  console.log("Upserted admin@astroverse.com");
+
+  const userPassword = await bcrypt.hash("User@1234", 12);
+  await prisma.user.upsert({
+    where: { email: "user@astroverse.com" },
+    update: {
+      name: "สมชาย ใจดี",
+      password: userPassword,
+      role: "user",
+      isDeleted: false,
+      isBanned: false,
+    },
+    create: {
+      email: "user@astroverse.com",
+      name: "สมชาย ใจดี",
+      password: userPassword,
+      role: "user",
+    },
+  });
+  console.log("Upserted user@astroverse.com");
+
+  const productsData = [
+    {
+      id: "seed-prod-1",
+      name: "พระขุนแผน",
+      price: 299,
+      stock: 50,
+      category: "พระเครื่อง",
+      description: "เสริมดวงความรัก โชคลาภ เมตตามหานิยม",
+    },
+    {
+      id: "seed-prod-2",
+      name: "หินโรสควอตซ์",
+      price: 189,
+      stock: 30,
+      category: "หินมงคล",
+      description: "เรียกความรัก เพิ่มเสน่ห์ ดึงดูดความสัมพันธ์ที่ดี",
+    },
+    {
+      id: "seed-prod-3",
+      name: "หินไทเกอร์อาย",
+      price: 249,
+      stock: 25,
+      category: "หินมงคล",
+      description: "เสริมความมั่นใจ การงาน ปกป้องอันตราย",
+    },
+    {
+      id: "seed-prod-4",
+      name: "พระสมเด็จ",
+      price: 499,
+      stock: 20,
+      category: "พระเครื่อง",
+      description: "คุ้มครองอันตราย นำโชคลาภ เสริมบารมี",
+    },
+    {
+      id: "seed-prod-5",
+      name: "หินแอเมทิสต์",
+      price: 159,
+      stock: 40,
+      category: "หินมงคล",
+      description: "ปัดเป่าสิ่งชั่วร้าย เพิ่มปัญญา ให้ความสงบ",
+    },
+    {
+      id: "seed-prod-6",
+      name: "เหรียญหลวงพ่อโสธร",
+      price: 650,
+      stock: 15,
+      category: "เครื่องรางนำโชค",
+      description: "นำโชค เสริมบารมี คุ้มครองทุกด้าน",
+    },
+  ];
+
+  for (const p of productsData) {
+    await prisma.product.upsert({
+      where: { id: p.id },
+      update: {
+        name: p.name,
+        price: p.price,
+        description: p.description,
+        stock: p.stock,
+        category: p.category,
+      },
+      create: {
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        description: p.description,
+        stock: p.stock,
+        category: p.category,
+      },
+    });
+    console.log(`Upserted product: ${p.name}`);
+  }
+
+  console.log("Seeding finished.");
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

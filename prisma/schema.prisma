@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String?
+  image       String?
+  password    String?
+  role        String       @default("user")
+  isBanned    Boolean      @default(false)
+  isDeleted   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  aiUsageLogs AIUsageLog[]
+  logs        Log[]
+  orders      Order[]
+  readings    Reading[]
+}
+
+model Reading {
+  id          String   @id @default(cuid())
+  userId      String?
+  guestIpHash String?
+  clientName  String
+  birthDate   String
+  birthTime   String?
+  prompt      String
+  response    String
+  type        String
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([guestIpHash, birthDate])
+  @@index([userId, birthDate])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String   @default("ทั่วไป")
+  price       Float
+  stock       Int      @default(0)
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  quantity  Int      @default(1)
+  status    String   @default("PENDING")
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Log {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   String?
+  level     String   @default("info")
+  createdAt DateTime @default(now())
+  path      String?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model GuestReadingQuota {
+  ipHash String
+  date   String
+  count  Int    @default(0)
+
+  @@id([ipHash, date])
+}
+
+model AIUsageLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  ipHash    String?
+  model     String
+  cached    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model ScheduledBackup {
+  id          String   @id @default(cuid())
+  name        String   // ชื่อ schedule เช่น "Daily Backup"
+  time        String   // เวลาในรูปแบบ "HH:mm" เช่น "02:00"
+  days        String[] // วันที่ทำ backup ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+  isActive    Boolean  @default(true)
+  keepCount   Int      @default(10) // จำนวน backup ที่เก็บไว้
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   // userId ของ admin ที่สร้าง
+  lastRunAt   DateTime? // วันเวลาที่รันครั้งล่าสุด
+  lastRunStatus String? // "success" | "failed"
+}
