@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import ToastProvider from "@/components/ToastProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Link from "next/link";
+import AccessLogTracker from "@/components/AccessLogTracker";
 
 const sarabun = Sarabun({
   subsets: ["latin", "thai"],
@@ -32,6 +33,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <AuthProvider>
+            <AccessLogTracker />
             <ToastProvider>
               <Navbar />
               <main className="flex-grow">{children}</main>

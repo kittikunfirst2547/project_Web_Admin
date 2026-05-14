@@ -21,6 +21,16 @@ async function ensureAdmin() {
   return session;
 }
 
+/**
+ * แปลง DateTime strings จาก JSON กลับเป็น Date objects
+ * Prisma ต้องการ Date object ไม่ใช่ string
+ */
+function parseDate(value: any): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 // ─── GET — preview backup file ────────────────────────────────
 export async function GET(req: Request) {
   const session = await ensureAdmin();
@@ -101,7 +111,18 @@ export async function POST(req: Request) {
       for (const p of tables.products) {
         await prisma.product.upsert({
           where:  { id: p.id },
-          create: p,
+          create: {
+            id:          p.id,
+            name:        p.name,
+            description: p.description,
+            price:       p.price,
+            stock:       p.stock,
+            category:    p.category,
+            isActive:    p.isActive,
+            imageUrl:    p.imageUrl || null,
+            createdAt:   parseDate(p.createdAt),
+            updatedAt:   parseDate(p.updatedAt) || new Date(),
+          },
           update: {
             name:        p.name,
             description: p.description,
@@ -134,7 +155,7 @@ export async function POST(req: Request) {
               role:      u.role,
               isDeleted: u.isDeleted,
               isBanned:  u.isBanned,
-              createdAt: new Date(u.createdAt),
+              createdAt: parseDate(u.createdAt),
             },
           });
         } else {
@@ -160,11 +181,147 @@ export async function POST(req: Request) {
       for (const r of tables.readings) {
         const exists = await prisma.reading.findUnique({ where: { id: r.id } });
         if (!exists) {
-          await prisma.reading.create({ data: r });
+          await prisma.reading.create({
+            data: {
+              id:          r.id,
+              userId:      r.userId || null,
+              guestIpHash: r.guestIpHash || null,
+              clientName:  r.clientName,
+              birthDate:   r.birthDate,
+              birthTime:   r.birthTime || null,
+              prompt:      r.prompt,
+              response:    r.response,
+              type:        r.type,
+              createdAt:   parseDate(r.createdAt),
+            },
+          });
           count++;
         }
       }
       results.readings = count;
+    }
+
+    // Restore orders (insert ถ้ายังไม่มี)
+    if (tables.orders?.length) {
+      let count = 0;
+      for (const o of tables.orders) {
+        const exists = await prisma.order.findUnique({ where: { id: o.id } });
+        if (!exists) {
+          await prisma.order.create({
+            data: {
+              id:        o.id,
+              userId:    o.userId,
+              productId: o.productId,
+              quantity:  o.quantity,
+              status:    o.status,
+              amount:    o.amount,
+              createdAt: parseDate(o.createdAt),
+              updatedAt: parseDate(o.updatedAt) || new Date(),
+            },
+          });
+          count++;
+        }
+      }
+      results.orders = count;
+    }
+
+    // Restore aiUsageLogs (insert ถ้ายังไม่มี)
+    if (tables.aiUsageLogs?.length) {
+      let count = 0;
+      for (const log of tables.aiUsageLogs) {
+        const exists = await prisma.aIUsageLog.findUnique({ where: { id: log.id } });
+        if (!exists) {
+          await prisma.aIUsageLog.create({
+            data: {
+              id:        log.id,
+              userId:    log.userId || null,
+              ipHash:    log.ipHash || null,
+              model:     log.model,
+              cached:    log.cached ?? false,
+              createdAt: parseDate(log.createdAt),
+            },
+          });
+          count++;
+        }
+      }
+      results.aiUsageLogs = count;
+    }
+
+    // Restore logs (insert ถ้ายังไม่มี — v1.1+)
+    if (tables.logs?.length) {
+      let count = 0;
+      for (const l of tables.logs) {
+        const exists = await prisma.log.findUnique({ where: { id: l.id } });
+        if (!exists) {
+          await prisma.log.create({
+            data: {
+              id:        l.id,
+              userId:    l.userId || null,
+              action:    l.action,
+              details:   l.details || null,
+              level:     l.level || "info",
+              path:      l.path || null,
+              createdAt: parseDate(l.createdAt),
+            },
+          });
+          count++;
+        }
+      }
+      results.logs = count;
+    }
+
+    // Restore guestQuotas (upsert — v1.1+)
+    if (tables.guestQuotas?.length) {
+      let count = 0;
+      for (const q of tables.guestQuotas) {
+        await prisma.guestReadingQuota.upsert({
+          where: {
+            ipHash_date: { ipHash: q.ipHash, date: q.date },
+          },
+          create: {
+            ipHash: q.ipHash,
+            date:   q.date,
+            count:  q.count,
+          },
+          update: {
+            count: q.count,
+          },
+        });
+        count++;
+      }
+      results.guestQuotas = count;
+    }
+
+    // Restore scheduledBackups (upsert — v1.1+)
+    if (tables.scheduledBackups?.length) {
+      let count = 0;
+      for (const s of tables.scheduledBackups) {
+        await prisma.scheduledBackup.upsert({
+          where: { id: s.id },
+          create: {
+            id:            s.id,
+            name:          s.name,
+            time:          s.time,
+            days:          s.days,
+            isActive:      s.isActive,
+            keepCount:     s.keepCount,
+            createdBy:     s.createdBy,
+            createdAt:     parseDate(s.createdAt),
+            updatedAt:     parseDate(s.updatedAt) || new Date(),
+            lastRunAt:     parseDate(s.lastRunAt),
+            lastRunStatus: s.lastRunStatus || null,
+          },
+          update: {
+            name:          s.name,
+            time:          s.time,
+            days:          s.days,
+            isActive:      s.isActive,
+            keepCount:     s.keepCount,
+          },
+        });
+        count++;
+      }
+      results.scheduledBackups = count;
     }
 
     return NextResponse.json({

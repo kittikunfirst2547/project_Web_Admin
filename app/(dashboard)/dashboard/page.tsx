@@ -10,31 +10,27 @@ export default async function DashboardPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const totalUsers = await prisma.user.count({ where: { isDeleted: false } });
-  const totalReadings = await prisma.reading.count();
-  const ordersToday = await prisma.order.count({
-    where: { createdAt: { gte: today } },
-  });
-  const errorsToday = await prisma.log.count({
-    where: { level: "error", createdAt: { gte: today } },
-  });
+  // รวม queries ที่ไม่ขึ้นกันด้วย Promise.all
+  const [totalUsers, totalReadings, ordersToday, errorsToday, recentOrders, readingsToday] = await Promise.all([
+    prisma.user.count({ where: { isDeleted: false } }),
+    prisma.reading.count(),
+    prisma.order.count({ where: { createdAt: { gte: today } } }),
+    prisma.log.count({ where: { level: "error", createdAt: { gte: today } } }),
+    prisma.order.findMany({
+      take: 8,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { name: true, email: true } },
+        product: { select: { name: true } },
+      },
+    }),
+    prisma.reading.findMany({
+      where: { createdAt: { gte: today }, userId: { not: null } },
+      select: { userId: true },
+    }),
+  ]);
 
-  const recentOrders = await prisma.order.findMany({
-    take: 8,
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: { select: { name: true, email: true } },
-      product: { select: { name: true } },
-    },
-  });
-
-  const readingsToday = await prisma.reading.findMany({
-    where: {
-      createdAt: { gte: today },
-      userId: { not: null },
-    },
-    select: { userId: true },
-  });
+  // Top readers calculation (ใน memory)
   const counts = new Map<string, number>();
   for (const r of readingsToday) {
     if (!r.userId) continue;
@@ -55,6 +51,7 @@ export default async function DashboardPage() {
     ).map((u) => [u.id, u])
   );
 
+  // Optimize chart data: ใช้ query เดียวแทน 7 queries
   const last7Days = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -62,20 +59,28 @@ export default async function DashboardPage() {
     return d;
   });
 
-  const chartData = await Promise.all(
-    last7Days.map(async (date, i) => {
-      const nextDate = new Date(date);
-      nextDate.setDate(date.getDate() + 1);
-      const count = await prisma.reading.count({
-        where: { createdAt: { gte: date, lt: nextDate } },
-      });
-      return {
-        label:
-          i === 6 ? "วันนี้" : date.toLocaleDateString("th-TH", { weekday: "short" }),
-        count,
-      };
-    })
-  );
+  const startDate = last7Days[0];
+  const endDate = new Date(last7Days[6]);
+  endDate.setDate(endDate.getDate() + 1);
+
+  const readingsLast7Days = await prisma.reading.findMany({
+    where: { createdAt: { gte: startDate, lt: endDate } },
+    select: { createdAt: true },
+  });
+
+  // Group by day in memory (เร็วกว่า query 7 ครั้ง)
+  const chartData = last7Days.map((date, i) => {
+    const nextDate = new Date(date);
+    nextDate.setDate(date.getDate() + 1);
+    const count = readingsLast7Days.filter(
+      (r) => r.createdAt >= date && r.createdAt < nextDate
+    ).length;
+    return {
+      label:
+        i === 6 ? "วันนี้" : date.toLocaleDateString("th-TH", { weekday: "short" }),
+      count,
+    };
+  });
 
   const maxReading = Math.max(...chartData.map((d) => d.count), 1);
 

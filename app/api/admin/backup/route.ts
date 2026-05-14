@@ -67,7 +67,7 @@ export async function POST() {
     await fs.mkdir(BACKUP_DIR, { recursive: true });
 
     // ดึงข้อมูลทุก table
-    const [users, readings, products, orders, aiUsageLogs] = await Promise.all([
+    const [users, readings, products, orders, aiUsageLogs, logs, guestQuotas, scheduledBackups] = await Promise.all([
       prisma.user.findMany({
         select: {
           id:        true,
@@ -84,26 +84,37 @@ export async function POST() {
       prisma.product.findMany(),
       prisma.order.findMany(),
       prisma.aIUsageLog.findMany(),
-    
+      prisma.log.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 1000, // เก็บ 1000 logs ล่าสุด
+      }),
+      prisma.guestReadingQuota.findMany(),
+      prisma.scheduledBackup.findMany(),
     ]);
 
     const backup = {
       exportedAt: new Date().toISOString(),
       exportedBy: session.user.email,
-      version:    "1.0",
+      version:    "1.1",
       tables: {
         users,
         readings,
         products,
         orders,
         aiUsageLogs,
+        logs,
+        guestQuotas,
+        scheduledBackups,
       },
       counts: {
-        users:       users.length,
-        readings:    readings.length,
-        products:    products.length,
-        orders:      orders.length,
-        aiUsageLogs: aiUsageLogs.length,
+        users:            users.length,
+        readings:         readings.length,
+        products:         products.length,
+        orders:           orders.length,
+        aiUsageLogs:      aiUsageLogs.length,
+        logs:             logs.length,
+        guestQuotas:      guestQuotas.length,
+        scheduledBackups: scheduledBackups.length,
       },
     };
 

@@ -64,8 +64,8 @@ async function createScheduledBackup(scheduleId: string, keepCount: number): Pro
   try {
     await fs.mkdir(BACKUP_DIR, { recursive: true });
 
-    // ดึงข้อมูลทุก table
-    const [users, readings, products, orders, aiUsageLogs] = await Promise.all([
+    // ดึงข้อมูลทุก table (เหมือนกับ manual backup)
+    const [users, readings, products, orders, aiUsageLogs, logs, guestQuotas] = await Promise.all([
       prisma.user.findMany({
         select: {
           id: true,
@@ -82,12 +82,17 @@ async function createScheduledBackup(scheduleId: string, keepCount: number): Pro
       prisma.product.findMany(),
       prisma.order.findMany(),
       prisma.aIUsageLog.findMany(),
+      prisma.log.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 1000, // เก็บ 1000 logs ล่าสุด
+      }),
+      prisma.guestReadingQuota.findMany(),
     ]);
 
     const backup = {
       exportedAt: new Date().toISOString(),
       exportedBy: "system-scheduled",
-      version: "1.0",
+      version: "1.1",
       scheduleId,
       tables: {
         users,
@@ -95,6 +100,8 @@ async function createScheduledBackup(scheduleId: string, keepCount: number): Pro
         products,
         orders,
         aiUsageLogs,
+        logs,
+        guestQuotas,
       },
       counts: {
         users: users.length,
@@ -102,6 +109,8 @@ async function createScheduledBackup(scheduleId: string, keepCount: number): Pro
         products: products.length,
         orders: orders.length,
         aiUsageLogs: aiUsageLogs.length,
+        logs: logs.length,
+        guestQuotas: guestQuotas.length,
       },
     };
 
